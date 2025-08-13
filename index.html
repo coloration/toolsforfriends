@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>链接转换</title>
+</head>
+<body>
+  <h1>链接转换工具</h1>
+  <input id="inputText" type="text" placeholder="粘贴字符串">
+  <button id="convertBtn">转换</button>
+  <p>结果：<span id="output"></span></p>
+
+  <script>
+    document.getElementById('convertBtn').addEventListener('click', async () => {
+      const text = document.getElementById('inputText').value.trim();
+      if (!text) return;
+
+      const res = await fetch(`/api/convert?text=${encodeURIComponent(text)}`);
+      const data = await res.json();
+      document.getElementById('output').textContent = data.result || data.error;
+    });
+  </script>
+</body>
+</html>
