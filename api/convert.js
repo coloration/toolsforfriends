@@ -1,7 +1,7 @@
 // api/convert.js
 const superagent = require('superagent');
 
-const tbHost = 'https://api.zhetaoke.com:10001/api';
+const tbHost = 'http://v.zhetaoke.com:10000/api/';
 const tbConfig = {
   appkey: 'aea199ac751a4cd0906302eae98a5652',
   sid: '37023',
