@@ -5,10 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>链接转换工具</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    textarea, input, select, button { width: 100%; padding: 8px; margin: 8px 0; }
+    body { font-family: sans-serif; padding: 20px; background: #f6f6f6; }
+    textarea, input, select, button { width: 100%; padding: 8px; margin: 8px 0; box-sizing: border-box; }
     button { cursor: pointer; }
     pre { background: #f5f5f5; padding: 10px; white-space: pre-wrap; }
+    .flex-row { display: flex; gap: 10px; }
+    .flex-row button { flex: 1; }
+    .info-list { margin-top: 10px; line-height: 1.6; }
   </style>
 </head>
 <body>
@@ -21,30 +24,72 @@
   </select>
 
   <label>淘口令 / 京东链接</label>
-  <textarea id="mainValue" placeholder="输入淘口令或京东链接"></textarea>
+  <textarea id="mainValue" placeholder="输入淘口令或京东链接" rows="4"></textarea>
 
   <label>relation_id / positionId (可选)</label>
   <input id="extraValue" placeholder="可选参数" />
 
-  <button id="submitBtn">开始转换</button>
+  <div class="flex-row">
+    <button id="clearBtn">清空</button>
+    <button id="submitBtn">开始转换</button>
+  </div>
 
-  <h2>结果</h2>
-  <pre id="result"></pre>
+  <label>转换结果</label>
+  <textarea id="newTKL" rows="4" readonly placeholder="转换后的口令"></textarea>
+
+  <div class="info-list" id="detailInfo"></div>
+
+  <button id="copyBtn">一键复制</button>
 
   <script>
-    document.getElementById('submitBtn').addEventListener('click', async () => {
-      const type = document.getElementById('type').value;
-      const mainValue = document.getElementById('mainValue').value.trim();
-      const extraValue = document.getElementById('extraValue').value.trim();
+    const submitBtn = document.getElementById('submitBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const mainValue = document.getElementById('mainValue');
+    const extraValue = document.getElementById('extraValue');
+    const newTKL = document.getElementById('newTKL');
+    const detailInfo = document.getElementById('detailInfo');
+    const typeSelect = document.getElementById('type');
 
-      if (!mainValue) {
+    clearBtn.addEventListener('click', () => {
+      mainValue.value = '';
+      extraValue.value = '';
+      newTKL.value = '';
+      detailInfo.innerHTML = '';
+    });
+
+    copyBtn.addEventListener('click', () => {
+      if (!newTKL.value) {
+        alert('请先生成口令');
+        return;
+      }
+      newTKL.select();
+      try {
+        document.execCommand('copy');
+        alert('复制成功');
+      } catch {
+        alert('浏览器不支持自动复制');
+      }
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      const type = typeSelect.value;
+      const mainVal = mainValue.value.trim();
+      const extraVal = extraValue.value.trim();
+
+      if (!mainVal) {
         alert('请输入淘口令或京东链接');
         return;
       }
 
       const body = type === 'tkl'
-        ? { tkl: mainValue, relation_id: extraValue || undefined }
-        : { oUrl: mainValue, positionId: extraValue || undefined };
+        ? { tkl: mainVal, relation_id: extraVal || undefined }
+        : { oUrl: mainVal, positionId: extraVal || undefined };
+
+      newTKL.value = '';
+      detailInfo.innerHTML = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = '转换中...';
 
       try {
         const res = await fetch(`/api/convert?type=${type}`, {
@@ -53,9 +98,27 @@
           body: JSON.stringify(body)
         });
         const data = await res.json();
-        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+
+        if(data.code === 0) {
+          // 填充结果
+          if(type === 'tkl') {
+            newTKL.value = `${data.data.tkl || ''} ${data.data.shorturl2 || ''} ${data.data.title || ''}`;
+          } else {
+            newTKL.value = data.data.shorturl || '';
+          }
+
+          detailInfo.innerHTML = `
+            ${data.data.coupon_info ? `<div>优惠券: ${data.data.coupon_info}</div>` : ''}
+            ${data.data.tkrate3 ? `<div>佣金比率: ${data.data.tkrate3}%</div>` : ''}
+          `;
+        } else {
+          alert(data.msg || '转换失败');
+        }
       } catch (err) {
-        document.getElementById('result').textContent = '请求失败: ' + err.message;
+        alert('请求失败: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '开始转换';
       }
     });
   </script>
