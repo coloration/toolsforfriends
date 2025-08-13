@@ -1,6 +1,4 @@
-// api/convert.js
-import { kv } from '@vercel/kv';
-import superagent from 'superagent';
+const superagent = require('superagent');
 
 const tbHost = 'https://api.zhetaoke.com:10001/api';
 const tbConfig = {
@@ -9,23 +7,14 @@ const tbConfig = {
   pid: 'mm_14134602_1185700493_111031000380'
 };
 const sPid = 'mm_14134602_1185700493_111031700399';
-const jdConfig = { unionId: 1001896506, pid: '1001896506_4100306154_3003939459' };
+
+const jdConfig = {
+  unionId: 1001896506,
+  pid: '1001896506_4100306154_3003939459'
+};
 
 const CODE_SUCCESS = 0;
 const CODE_ERROR = -1;
-
-// 保存记录到 KV
-async function saveRecord(type, input, result, username) {
-  const timestamp = Date.now();
-  const key = `record:${timestamp}`;
-  await kv.set(key, { type, input, result, username, timestamp });
-  // 保留最近 50 条记录
-  const keys = await kv.keys('record:*');
-  if (keys.length > 50) {
-    const oldest = keys.sort()[0];
-    await kv.del(oldest);
-  }
-}
 
 async function convertTKL(body) {
   const { tkl, relation_id } = body || {};
@@ -43,8 +32,11 @@ async function convertTKL(body) {
     .timeout({ response: 8000, deadline: 10000 });
 
   let resData;
-  try { resData = JSON.parse(result.text); } 
-  catch { throw new Error('TKL接口返回非JSON'); }
+  try {
+    resData = JSON.parse(result.text);
+  } catch {
+    throw new Error('TKL接口返回非JSON');
+  }
 
   if (resData.status === 200 && resData.content?.length) {
     return resData.content[0];
@@ -70,8 +62,11 @@ async function convertJDKL(body) {
     .timeout({ response: 8000, deadline: 10000 });
 
   let resData;
-  try { resData = JSON.parse(result.text); } 
-  catch { throw new Error('JD接口返回非JSON'); }
+  try {
+    resData = JSON.parse(result.text);
+  } catch {
+    throw new Error('JD接口返回非JSON');
+  }
 
   if (resData.status === 200 && resData.content?.length) {
     return resData.content[0];
@@ -79,7 +74,9 @@ async function convertJDKL(body) {
     resData?.jd_union_open_promotion_byunionid_get_response?.result &&
     resData?.jd_union_open_promotion_byunionid_get_response?.code == 0
   ) {
-    const innerRes = JSON.parse(resData.jd_union_open_promotion_byunionid_get_response.result);
+    const innerRes = JSON.parse(
+      resData.jd_union_open_promotion_byunionid_get_response.result
+    );
     if (innerRes.code == 200) {
       query.materialId = innerRes.data.shortURL;
       const retryResult = await superagent
@@ -87,31 +84,36 @@ async function convertJDKL(body) {
         .query(query)
         .timeout({ response: 8000, deadline: 10000 });
       const retryData = JSON.parse(retryResult.text);
-      if (retryData.status === 200 && retryData.content?.length) return retryData.content[0];
+      if (retryData.status === 200 && retryData.content?.length) {
+        return retryData.content[0];
+      }
     }
     throw new Error('京东链接转换失败');
-  } else throw new Error('京东链接转换失败');
+  } else {
+    throw new Error('京东链接转换失败');
+  }
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ code: CODE_ERROR, msg: 'Method Not Allowed' });
+module.exports = async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ code: CODE_ERROR, msg: 'Method Not Allowed' });
+  }
 
   const { type } = req.query;
-  const { username } = req.body || {};
-  if (!username) return res.status(400).json({ code: CODE_ERROR, msg: '用户名不能为空' });
 
   try {
     let data;
-    if (type === 'tkl') data = await convertTKL(req.body);
-    else if (type === 'jd') data = await convertJDKL(req.body);
-    else return res.status(400).json({ code: CODE_ERROR, msg: 'Invalid type parameter' });
-
-    // 写入 KV 记录
-    await saveRecord(type, req.body, data, username);
+    if (type === 'tkl') {
+      data = await convertTKL(req.body);
+    } else if (type === 'jd') {
+      data = await convertJDKL(req.body);
+    } else {
+      return res.status(400).json({ code: CODE_ERROR, msg: 'Invalid type parameter' });
+    }
 
     res.status(200).json({ code: CODE_SUCCESS, msg: '转换成功', data });
   } catch (err) {
     console.error('Function error:', err);
     res.status(500).json({ code: CODE_ERROR, msg: err.message, data: null });
   }
-}
+};

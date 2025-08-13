@@ -8,6 +8,7 @@
     body { font-family: sans-serif; padding: 20px; background: #f6f6f6; }
     textarea, input, select, button { width: 100%; padding: 8px; margin: 8px 0; box-sizing: border-box; }
     button { cursor: pointer; }
+    pre { background: #f5f5f5; padding: 10px; white-space: pre-wrap; }
     .flex-row { display: flex; gap: 10px; }
     .flex-row button { flex: 1; }
     .info-list { margin-top: 10px; line-height: 1.6; }
@@ -15,9 +16,6 @@
 </head>
 <body>
   <h1>链接转换工具</h1>
-
-  <label>昵称</label>
-  <input id="nickname" placeholder="填写昵称，用于保存记录" />
 
   <label>转换类型</label>
   <select id="type">
@@ -39,43 +37,25 @@
   <label>转换结果</label>
   <textarea id="newTKL" rows="4" readonly placeholder="转换后的口令"></textarea>
 
-  <div class="info-list">
-    <div id="couponInfo"></div>
-    <div id="commissionRate"></div>
-  </div>
-
-  <div style="margin-top: 20px; font-size: 12px; color: #888;">
-    提示：转换记录只保存到后台数据库，不显示在前台
-  </div>
+  <div class="info-list" id="detailInfo"></div>
 
   <button id="copyBtn">一键复制</button>
 
   <script>
-    const nicknameInput = document.getElementById('nickname');
     const submitBtn = document.getElementById('submitBtn');
     const clearBtn = document.getElementById('clearBtn');
     const copyBtn = document.getElementById('copyBtn');
     const mainValue = document.getElementById('mainValue');
     const extraValue = document.getElementById('extraValue');
     const newTKL = document.getElementById('newTKL');
-    const couponInfoDiv = document.getElementById('couponInfo');
-    const commissionRateDiv = document.getElementById('commissionRate');
+    const detailInfo = document.getElementById('detailInfo');
     const typeSelect = document.getElementById('type');
-
-    // 页面加载时读取昵称
-    const savedNickname = localStorage.getItem('nickname');
-    if(savedNickname) nicknameInput.value = savedNickname;
-
-    nicknameInput.addEventListener('change', () => {
-      localStorage.setItem('nickname', nicknameInput.value.trim());
-    });
 
     clearBtn.addEventListener('click', () => {
       mainValue.value = '';
       extraValue.value = '';
       newTKL.value = '';
-      couponInfoDiv.textContent = '';
-      commissionRateDiv.textContent = '';
+      detailInfo.innerHTML = '';
     });
 
     copyBtn.addEventListener('click', () => {
@@ -93,12 +73,6 @@
     });
 
     submitBtn.addEventListener('click', async () => {
-      const nickname = nicknameInput.value.trim();
-      if (!nickname) {
-        alert('请先填写昵称');
-        return;
-      }
-
       const type = typeSelect.value;
       const mainVal = mainValue.value.trim();
       const extraVal = extraValue.value.trim();
@@ -109,12 +83,11 @@
       }
 
       const body = type === 'tkl'
-        ? { tkl: mainVal, relation_id: extraVal || undefined, username: nickname }
-        : { oUrl: mainVal, positionId: extraVal || undefined, username: nickname };
+        ? { tkl: mainVal, relation_id: extraVal || undefined }
+        : { oUrl: mainVal, positionId: extraVal || undefined };
 
       newTKL.value = '';
-      couponInfoDiv.textContent = '';
-      commissionRateDiv.textContent = '';
+      detailInfo.innerHTML = '';
       submitBtn.disabled = true;
       submitBtn.textContent = '转换中...';
 
@@ -134,8 +107,10 @@
             newTKL.value = data.data.shorturl || '';
           }
 
-          couponInfoDiv.textContent = data.data.coupon_info || '';
-          commissionRateDiv.textContent = data.data.tkrate3 ? `佣金比率: ${data.data.tkrate3}%` : '';
+          detailInfo.innerHTML = `
+            ${data.data.coupon_info ? `<div>优惠券: ${data.data.coupon_info}</div>` : ''}
+            ${data.data.tkrate3 ? `<div>佣金比率: ${data.data.tkrate3}%</div>` : ''}
+          `;
         } else {
           alert(data.msg || '转换失败');
         }
